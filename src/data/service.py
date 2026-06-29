@@ -1,14 +1,5 @@
 from src.data.cache_store import count_csv_rows, get_or_load, invalidate, load_csv_rows, load_json
 from src.config import CACHE_DIR, COMPETITION_MAP, DATA_DIR, DEFAULT_COMPETITION, FOOTBALL_DATA_API_KEY, INTERNATIONAL_COMPETITIONS
-from src.data.football_data import (
-    FootballDataClient,
-    load_cached_matches,
-    load_cached_standings,
-    load_cached_teams,
-    load_cached_upcoming,
-    load_group_standings,
-    sync_competition_data,
-)
 from src.data.odds_api import OddsAPIClient
 from src.data.wc2026_loader import (
     get_wc2026_full_history,
@@ -22,6 +13,11 @@ from src.data.wc2026_loader import (
 from src.features.builder import MatchContext
 from src.features.odds_features import OddsFeatures
 from src.model.predict import get_predictor
+
+
+def _football_data():
+    from src.data import football_data
+    return football_data
 
 
 class DataService:
@@ -51,13 +47,14 @@ class DataService:
             from src.config import FOOTBALL_DATA_API_KEY
             if FOOTBALL_DATA_API_KEY:
                 try:
-                    api_meta = sync_competition_data(self.competition)
+                    fd = _football_data()
+                    api_meta = fd.sync_competition_data(self.competition)
                     refresh_wc2026_cache()
                     return {**api_meta, "source": "api+wc2026"}
                 except Exception:
                     pass
             return refresh_wc2026_cache()
-        return sync_competition_data(self.competition)
+        return _football_data().sync_competition_data(self.competition)
 
     def refresh_schedule(self) -> dict:
         """更新本地赛程（世界杯专用）。"""
@@ -92,41 +89,41 @@ class DataService:
 
     def get_teams(self) -> list[dict]:
         if self.competition == "WC":
-            cached = load_cached_teams("WC")
-            if cached:
-                return cached
+            cache_path = CACHE_DIR / "WC_teams.json"
+            if cache_path.exists():
+                return get_or_load("wc:teams", lambda: load_json(cache_path), cache_path)
             return get_wc2026_teams()
-        teams = load_cached_teams(self.competition)
+        fd = _football_data()
+        teams = fd.load_cached_teams(self.competition)
         if teams:
             return teams
         try:
-            client = FootballDataClient()
+            client = fd.FootballDataClient()
             return client.get_teams(self.competition)
         except ValueError:
             return []
 
     def get_upcoming(self) -> list[dict]:
         if self.competition == "WC":
-            cached = load_cached_upcoming("WC")
-            if cached:
-                return cached
+            cache_path = CACHE_DIR / "WC_upcoming.json"
+            if cache_path.exists():
+                return get_or_load("wc:upcoming", lambda: load_json(cache_path), cache_path)
             return get_wc2026_upcoming_matches()
-        upcoming = load_cached_upcoming(self.competition)
+        fd = _football_data()
+        upcoming = fd.load_cached_upcoming(self.competition)
         if upcoming:
             return upcoming
         try:
-            client = FootballDataClient()
+            client = fd.FootballDataClient()
             return client.get_upcoming_matches(self.competition)
         except ValueError:
             return []
 
     def get_groups(self) -> dict[str, list[dict]]:
         if self.competition == "WC":
-            cached = load_group_standings("WC")
-            if cached:
-                return {k: v for k, v in cached.items() if k != "TOTAL"}
             return get_wc2026_group_tables()
-        groups = load_group_standings(self.competition)
+        fd = _football_data()
+        groups = fd.load_group_standings(self.competition)
         return {k: v for k, v in groups.items() if k != "TOTAL"}
 
     def get_sync_status(self) -> dict:
@@ -214,9 +211,11 @@ class DataService:
         match_date: str | None = None,
     ) -> dict:
         history = self.get_history()
-        standings = load_cached_standings(self.competition)
-        if self.competition == "WC" and not standings:
+        standings = {}
+        if self.competition == "WC":
             standings = get_wc2026_standings()
+        else:
+            standings = _football_data().load_cached_standings(self.competition)
 
         context = MatchContext(
             standings=standings,
@@ -325,7 +324,7 @@ class DataService:
                 "away_win": round(model_p["away_win"] - market_p["away_win"], 4),
             }
 
-        standings = load_cached_standings("WC") or get_wc2026_standings()
+        standings = get_wc2026_standings()
         home_st = standings.get(home_team)
         away_st = standings.get(away_team)
 

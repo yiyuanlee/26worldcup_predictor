@@ -1,10 +1,9 @@
 """进程内缓存，避免重复读盘与解析。"""
 
+import csv
 import json
 import time
 from pathlib import Path
-
-import pandas as pd
 
 _CACHE: dict[str, tuple[float, object]] = {}
 _DEFAULT_TTL = 300  # 5 分钟
@@ -15,6 +14,38 @@ def count_csv_rows(path: Path) -> int:
         return max(0, sum(1 for _ in open(path, encoding="utf-8")) - 1)
     except OSError:
         return 0
+
+
+def _cell(row: dict, key: str, default: str = "") -> str:
+    val = row.get(key, default)
+    return default if val in (None, "") else str(val)
+
+
+def read_csv_rows(path: Path) -> list[dict]:
+    rows: list[dict] = []
+    with open(path, encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            item = {
+                "home_team": row["home_team"],
+                "away_team": row["away_team"],
+                "home_goals": int(row["home_goals"]),
+                "away_goals": int(row["away_goals"]),
+                "date": _cell(row, "date"),
+            }
+            if row.get("stage"):
+                item["stage"] = row["stage"]
+            if row.get("group"):
+                item["group"] = row["group"]
+            rows.append(item)
+    return rows
+
+
+def write_csv_rows(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({k: row.get(k, "") for k in fieldnames})
 
 
 def _key(name: str, path: Path | None = None) -> str:
@@ -44,20 +75,7 @@ def load_json(path: Path) -> dict | list:
 
 
 def load_csv_rows(path: Path) -> list[dict]:
-    df = pd.read_csv(path)
-    rows = []
-    for _, r in df.iterrows():
-        row = {
-            "home_team": r["home_team"],
-            "away_team": r["away_team"],
-            "home_goals": int(r["home_goals"]),
-            "away_goals": int(r["away_goals"]),
-            "date": str(r.get("date", "")) if pd.notna(r.get("date")) else "",
-        }
-        if "stage" in r and pd.notna(r.get("stage")):
-            row["stage"] = r["stage"]
-        rows.append(row)
-    return rows
+    return read_csv_rows(path)
 
 
 def invalidate(prefix: str = "") -> None:

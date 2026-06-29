@@ -5,8 +5,9 @@ __pycache__/
 venv/
 .env
 models/*.pkl
-models/*.joblib
-data/cache/
+models/match_predictor.joblib
+!models/wc_predictor.joblibdata/cache/
 .DS_Store
 .idea/
 .vscode/
+.vercel

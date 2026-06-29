@@ -4,10 +4,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pandas as pd
-
 from src.config import CACHE_DIR, DATA_DIR
-from src.data.cache_store import invalidate
+from src.data.cache_store import invalidate, read_csv_rows, write_csv_rows
 from src.features.standings import TeamStanding
 
 WC2026_SCHEDULE = DATA_DIR / "wc2026_schedule.json"
@@ -25,22 +23,9 @@ def get_wc2026_finished_matches() -> list[dict]:
     """2026 世界杯已结束比赛。"""
     if not WC2026_RESULTS.exists():
         return []
-    df = pd.read_csv(WC2026_RESULTS)
-    rows = []
-    for _, r in df.iterrows():
-        row = {
-            "home_team": r["home_team"],
-            "away_team": r["away_team"],
-            "home_goals": int(r["home_goals"]),
-            "away_goals": int(r["away_goals"]),
-            "date": str(r["date"]),
-            "status": "FINISHED",
-        }
-        if pd.notna(r.get("stage")):
-            row["stage"] = r["stage"]
-        if "group" in r and pd.notna(r.get("group")):
-            row["group"] = r["group"]
-        rows.append(row)
+    rows = read_csv_rows(WC2026_RESULTS)
+    for row in rows:
+        row["status"] = "FINISHED"
     return rows
 
 
@@ -124,18 +109,7 @@ def get_wc2026_full_history() -> list[dict]:
     history: list[dict] = []
 
     if WC2026_HISTORICAL.exists():
-        df = pd.read_csv(WC2026_HISTORICAL)
-        for _, r in df.iterrows():
-            row = {
-                "home_team": r["home_team"],
-                "away_team": r["away_team"],
-                "home_goals": int(r["home_goals"]),
-                "away_goals": int(r["away_goals"]),
-                "date": str(r.get("date", "")),
-            }
-            if "stage" in r and pd.notna(r.get("stage")):
-                row["stage"] = r["stage"]
-            history.append(row)
+        history.extend(read_csv_rows(WC2026_HISTORICAL))
 
     history.extend(get_wc2026_finished_matches())
     history.sort(key=lambda x: x.get("date", ""))
@@ -183,17 +157,21 @@ def refresh_wc2026_cache() -> dict:
     )
 
     full_history = get_wc2026_full_history()
-    pd.DataFrame([
-        {
-            "date": m.get("date", ""),
-            "home_team": m["home_team"],
-            "away_team": m["away_team"],
-            "home_goals": m["home_goals"],
-            "away_goals": m["away_goals"],
-            "stage": m.get("stage", ""),
-        }
-        for m in full_history
-    ]).to_csv(CACHE_DIR / f"{competition}_matches.csv", index=False)
+    write_csv_rows(
+        CACHE_DIR / f"{competition}_matches.csv",
+        [
+            {
+                "date": m.get("date", ""),
+                "home_team": m["home_team"],
+                "away_team": m["away_team"],
+                "home_goals": m["home_goals"],
+                "away_goals": m["away_goals"],
+                "stage": m.get("stage", ""),
+            }
+            for m in full_history
+        ],
+        ["date", "home_team", "away_team", "home_goals", "away_goals", "stage"],
+    )
 
     schedule = load_wc2026_schedule()
     meta = {

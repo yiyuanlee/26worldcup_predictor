@@ -1,4 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "python scripts/train_model.py"
+  "functions": {
+    "api/index.py": {
+      "excludeFiles": "{scripts/**,data/cache/**,data/sample_matches.csv,**/__pycache__/**,**/*.pyc,**/*.pyo,**/tests/**,**/test/**}"
+    }
+  }
 }
