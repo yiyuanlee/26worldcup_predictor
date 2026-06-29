@@ -85,17 +85,17 @@ if os.getenv("VERCEL"):
     from fastapi.responses import HTMLResponse
     from fastapi.staticfiles import StaticFiles
 
-    from src.config import PUBLIC_DIR
+    from src.config import STATIC_DIR
 
-    app.mount("/static", StaticFiles(directory=str(PUBLIC_DIR / "static")), name="static")
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     @app.get("/", response_class=HTMLResponse)
     async def home():
-        return (PUBLIC_DIR / "index.html").read_text(encoding="utf-8")
+        return (STATIC_DIR / "index.html").read_text(encoding="utf-8")
 
     @app.get("/analysis", response_class=HTMLResponse)
     async def analysis_page():
-        return (PUBLIC_DIR / "analysis.html").read_text(encoding="utf-8")
+        return (STATIC_DIR / "analysis.html").read_text(encoding="utf-8")
 else:
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
