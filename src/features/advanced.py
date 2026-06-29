@@ -1,11 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def _parse_date(date_str: str) -> datetime | None:
     if not date_str:
         return None
     try:
-        return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
     except ValueError:
         return None
 
