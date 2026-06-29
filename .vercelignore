@@ -6,3 +6,9 @@ data/cache/
 .env
 .idea/
 .vscode/
+scripts/
+data/sample_matches.csv
+src/data/football_data.py
+src/model/train.py
+src/data/wc_training_data.py
+src/pipeline.py
