@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n-key="meta.homeTitle">世界杯 2026 · 赛事中心</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="page-home">
+  <div class="lang-bar">
+    <button type="button" class="lang-btn" data-lang="zh">中文</button>
+    <button type="button" class="lang-btn" data-lang="en">EN</button>
+  </div>
+
+  <header class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <span class="hero-badge" data-i18n="hero.badge">FIFA WORLD CUP 2026</span>
+      <h1 data-i18n="hero.title">🏆 世界杯预测中心</h1>
+      <p class="hero-desc" data-i18n="hero.desc">世界杯专属模型 · 2018–2026 数据 · 选择比赛进入专业分析</p>
+      <div id="statusBar" class="status-pill" data-i18n="status.loading">加载中...</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <div class="section-head">
+        <h2 data-i18n="section.schedule">32 强及后续赛程</h2>
+        <button id="refreshBtn" class="btn btn-ghost" data-i18n="btn.refresh">更新赛程</button>
+      </div>
+      <div id="matchGrid" class="match-grid"></div>
+    </section>
+
+    <section class="section">
+      <h2 data-i18n="section.custom">自定义对阵分析</h2>
+      <div class="custom-pick">
+        <select id="homePick"><option value="" data-i18n="pick.home">选择主队</option></select>
+        <span class="vs-badge">VS</span>
+        <select id="awayPick"><option value="" data-i18n="pick.away">选择客队</option></select>
+        <button id="goAnalysis" class="btn btn-primary" data-i18n="btn.analysis">进入专业分析 →</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 data-i18n="section.groups">小组最终排名</h2>
+      <div id="groupsGrid" class="groups-grid"></div>
+    </section>
+  </main>
+
+  <footer class="footer" data-i18n="footer">World Cup Predictor · 仅供学习研究</footer>
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/home.js"></script>
+</body>
+</html>

@@ -7,7 +7,7 @@ load_dotenv()
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
-CACHE_DIR = DATA_DIR / "cache"
+CACHE_DIR = Path("/tmp/wc_cache") if os.getenv("VERCEL") else DATA_DIR / "cache"
 MODEL_DIR = PROJECT_ROOT / "models"
 STATIC_DIR = PROJECT_ROOT / "static"
 
@@ -43,4 +43,7 @@ COMPETITION_MAP = {
 INTERNATIONAL_COMPETITIONS = {k for k, v in COMPETITION_MAP.items() if v.get("type") == "international"}
 
 for d in (DATA_DIR, CACHE_DIR, MODEL_DIR, STATIC_DIR):
-    d.mkdir(exist_ok=True)
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass

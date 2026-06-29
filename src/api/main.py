@@ -1,10 +1,9 @@
+import os
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from src.config import FOOTBALL_DATA_API_KEY, STATIC_DIR
 from src.data.service import DataService
 from src.model.predict import get_predictor
 
@@ -16,7 +15,7 @@ WC = "WC"
 def warmup():
     try:
         get_predictor()
-    except FileNotFoundError:
+    except Exception:
         pass
 
 app.add_middleware(
@@ -26,8 +25,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
 
 class PredictRequest(BaseModel):
     home_team: str
@@ -35,16 +32,6 @@ class PredictRequest(BaseModel):
     fetch_odds: bool = False
     match_date: str | None = None
     stage: str | None = None
-
-
-@app.get("/")
-async def home():
-    return FileResponse(STATIC_DIR / "index.html")
-
-
-@app.get("/analysis")
-async def analysis_page():
-    return FileResponse(STATIC_DIR / "analysis.html")
 
 
 @app.get("/api/home")
@@ -91,3 +78,21 @@ async def refresh_schedule():
         return {"success": True, **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# 本地开发：FastAPI 直接提供静态页面；Vercel 使用 public/ 目录
+if not os.getenv("VERCEL"):
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    from src.config import STATIC_DIR
+
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+    @app.get("/")
+    async def home():
+        return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/analysis")
+    async def analysis_page():
+        return FileResponse(STATIC_DIR / "analysis.html")
