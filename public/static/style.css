@@ -151,9 +151,68 @@ a { color: var(--green); text-decoration: none; }
 }
 
 .match-teams {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   margin: 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.match-teams .vs {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.82rem;
+}
+
+.team-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.team-flag {
+  display: inline-block;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  vertical-align: middle;
+}
+
+.team-flag-lg {
+  width: 64px;
+  height: 48px;
+}
+
+.team-flag-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  width: 64px;
+  height: 48px;
+  background: var(--surface2);
+  border-radius: 8px;
+}
+
+.team-flag-wrap {
+  width: 64px;
+  height: 48px;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-flag-wrap .team-flag,
+.team-flag-wrap .team-flag-fallback {
+  width: 64px;
+  height: 48px;
+}
+
+.form-col h4 .team-inline {
+  justify-content: center;
 }
 
 .match-teams span {
@@ -324,23 +383,6 @@ select {
 }
 
 .team-block { flex: 1; min-width: 140px; }
-
-.team-initial {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--home), #1d4ed8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.1rem;
-  margin: 0 auto 10px;
-}
-
-.team-initial.away {
-  background: linear-gradient(135deg, var(--away), #b91c1c);
-}
 
 .team-block h1 { font-size: 1.25rem; }
 

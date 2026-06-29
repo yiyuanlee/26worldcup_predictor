@@ -30,7 +30,7 @@ function renderMatches(matches) {
     const st = stageLabel(m.stage);
     return `<article class="match-card" data-home="${m.home_team}" data-away="${m.away_team}" data-stage="${m.stage || ""}" data-date="${m.date || ""}">
       <span class="match-stage">${st}</span>
-      <div class="match-teams">${m.home_team}<span>vs</span>${m.away_team}</div>
+      <div class="match-teams">${teamInline(m.home_team)}<span class="vs">vs</span>${teamInline(m.away_team)}</div>
       <time>${dt}</time>
       <span class="match-cta">${t("match.analysis")}</span>
     </article>`;
@@ -40,14 +40,16 @@ function renderMatches(matches) {
 function renderGroups(groups) {
   $("groupsGrid").innerHTML = Object.keys(groups || {}).sort().map((g) => {
     const rows = groups[g].map((team) =>
-      `<div class="gr-row"><span>${team.position}. ${team.team}</span><span>${t("group.pts", { n: team.points })}</span></div>`
+      `<div class="gr-row"><span>${team.position}. ${teamInline(team.team)}</span><span>${t("group.pts", { n: team.points })}</span></div>`
     ).join("");
     return `<div class="gr-card"><h4>${t("group.label", { g })}</h4>${rows}</div>`;
   }).join("");
 }
 
 function renderTeams(teams) {
-  const opts = teams.map((team) => `<option value="${team.name}">${team.name}</option>`).join("");
+  const opts = teams.map((team) =>
+    `<option value="${team.name}">${teamFlagEmoji(team.name)} ${team.name}</option>`
+  ).join("");
   $("homePick").innerHTML = `<option value="">${t("pick.home")}</option>${opts}`;
   $("awayPick").innerHTML = `<option value="">${t("pick.away")}</option>${opts}`;
 }

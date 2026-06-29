@@ -13,10 +13,6 @@ const FEATURE_KEYS = [
 
 function pct(v) { return (v * 100).toFixed(1) + "%"; }
 
-function initial(name) {
-  return (name || "?").split(" ").map((w) => w[0]).join("").slice(0, 3).toUpperCase();
-}
-
 function showError(msg) {
   $("loading").classList.add("hidden");
   $("errorScreen").classList.remove("hidden");
@@ -40,8 +36,8 @@ function render(d) {
 
   $("homeName").textContent = d.home_team;
   $("awayName").textContent = d.away_team;
-  $("homeInitial").textContent = initial(d.home_team);
-  $("awayInitial").textContent = initial(d.away_team);
+  $("homeFlag").innerHTML = teamFlagHtml(d.home_team, "lg");
+  $("awayFlag").innerHTML = teamFlagHtml(d.away_team, "lg");
 
   const hp = d.team_profiles?.home;
   const ap = d.team_profiles?.away;
@@ -67,13 +63,13 @@ function render(d) {
 
   const f = d.form;
   $("formCompare").innerHTML = `
-    <div class="form-col"><h4>${d.home_team}</h4>
+    <div class="form-col"><h4>${teamInline(d.home_team)}</h4>
       <div class="stat"><span>${t("form.ppg")}</span><strong>${f.home.ppg}</strong></div>
       <div class="stat"><span>${t("form.scored")}</span><strong>${f.home.scored}</strong></div>
       <div class="stat"><span>${t("form.conceded")}</span><strong>${f.home.conceded}</strong></div>
       <div class="stat"><span>${t("form.winRate")}</span><strong>${pct(f.home.win_rate)}</strong></div>
     </div>
-    <div class="form-col"><h4>${d.away_team}</h4>
+    <div class="form-col"><h4>${teamInline(d.away_team)}</h4>
       <div class="stat"><span>${t("form.ppg")}</span><strong>${f.away.ppg}</strong></div>
       <div class="stat"><span>${t("form.scored")}</span><strong>${f.away.scored}</strong></div>
       <div class="stat"><span>${t("form.conceded")}</span><strong>${f.away.conceded}</strong></div>
