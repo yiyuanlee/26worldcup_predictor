@@ -80,8 +80,23 @@ async def refresh_schedule():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 本地开发：FastAPI 直接提供静态页面；Vercel 使用 public/ 目录
-if not os.getenv("VERCEL"):
+# 本地开发：static/；Vercel：public/ 静态资源
+if os.getenv("VERCEL"):
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    from src.config import PUBLIC_DIR
+
+    app.mount("/static", StaticFiles(directory=str(PUBLIC_DIR / "static")), name="static")
+
+    @app.get("/")
+    async def home():
+        return FileResponse(PUBLIC_DIR / "index.html")
+
+    @app.get("/analysis")
+    async def analysis_page():
+        return FileResponse(PUBLIC_DIR / "analysis.html")
+else:
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
 
