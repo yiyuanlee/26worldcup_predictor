@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": ""
+  "installCommand": "pip install scikit-learn numpy requests python-dotenv joblib fastapi"
 }
