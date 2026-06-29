@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n-key="meta.analysisTitle">专业分析 · 世界杯预测</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="page-analysis">
+  <nav class="top-nav">
+    <a href="/" class="back-link" data-i18n="nav.back">← 返回赛事中心</a>
+    <div class="nav-right">
+      <div class="lang-bar inline">
+        <button type="button" class="lang-btn" data-lang="zh">中文</button>
+        <button type="button" class="lang-btn" data-lang="en">EN</button>
+      </div>
+      <label class="odds-toggle">
+        <input type="checkbox" id="fetchOdds">
+        <span data-i18n="nav.odds">拉取实时赔率</span>
+      </label>
+    </div>
+  </nav>
+
+  <div id="loading" class="loading-screen">
+    <div class="loader"></div>
+    <p data-i18n="loading.analysis">正在生成专业分析报告...</p>
+  </div>
+
+  <main id="analysisMain" class="analysis-main hidden">
+    <header class="match-hero">
+      <span id="stageBadge" class="stage-badge-lg"></span>
+      <div class="teams-row">
+        <div class="team-block">
+          <div id="homeInitial" class="team-initial"></div>
+          <h1 id="homeName"></h1>
+          <div id="homeProfile" class="team-meta"></div>
+        </div>
+        <div class="score-center">
+          <span class="vs-text">VS</span>
+          <div id="predBadge" class="pred-badge"></div>
+        </div>
+        <div class="team-block">
+          <div id="awayInitial" class="team-initial away"></div>
+          <h1 id="awayName"></h1>
+          <div id="awayProfile" class="team-meta"></div>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel prob-panel">
+      <h2><span data-i18n="analysis.probTitle">胜率预测</span> <span class="model-tag" data-i18n="analysis.modelTag">WC 专属模型</span></h2>
+      <div class="prob-cards">
+        <div class="prob-card home">
+          <span class="prob-label" data-i18n="outcome.home_win">主胜</span>
+          <span id="homeProb" class="prob-value">-</span>
+          <div class="prob-bar"><div id="homeBar"></div></div>
+        </div>
+        <div class="prob-card draw">
+          <span class="prob-label" data-i18n="outcome.draw">平局</span>
+          <span id="drawProb" class="prob-value">-</span>
+          <div class="prob-bar"><div id="drawBar"></div></div>
+        </div>
+        <div class="prob-card away">
+          <span class="prob-label" data-i18n="outcome.away_win">客胜</span>
+          <span id="awayProb" class="prob-value">-</span>
+          <div class="prob-bar"><div id="awayBar"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="insightsPanel" class="panel insights-panel">
+      <h2 data-i18n="analysis.insights">核心洞察</h2>
+      <ul id="insightsList"></ul>
+    </section>
+
+    <div class="two-col">
+      <section class="panel">
+        <h2 data-i18n="analysis.form">近期状态（近5场）</h2>
+        <div class="form-compare" id="formCompare"></div>
+      </section>
+      <section class="panel">
+        <h2 data-i18n="analysis.h2h">历史交手</h2>
+        <div id="h2hStats" class="h2h-stats"></div>
+        <ul id="meetingsList" class="meetings-list"></ul>
+      </section>
+    </div>
+
+    <section id="marketPanel" class="panel hidden">
+      <h2 data-i18n="analysis.market">模型 vs 市场</h2>
+      <div id="marketCompare" class="market-compare"></div>
+    </section>
+
+    <section class="panel">
+      <h2 data-i18n="analysis.features">特征雷达</h2>
+      <div id="featuresGrid" class="features-grid"></div>
+    </section>
+  </main>
+
+  <div id="errorScreen" class="error-screen hidden">
+    <p id="errorMsg"></p>
+    <a href="/" class="btn btn-primary" data-i18n="error.backHome">返回首页</a>
+  </div>
+
+  <script src="/static/i18n.js"></script>
+  <script src="/static/analysis.js"></script>
+</body>
+</html>
