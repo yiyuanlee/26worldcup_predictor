@@ -41,6 +41,7 @@ def compute_form(
     matches: list[dict],
     team: str,
     window: int = 5,
+    team_matches: list[dict] | None = None,
 ) -> FormStats:
     """
     计算球队近期状态。
@@ -48,11 +49,12 @@ def compute_form(
     每条 match 需包含: home_team, away_team, home_goals, away_goals
     按时间顺序排列，取该队最近 window 场。
     """
-    team_matches = [
-        m
-        for m in matches
-        if m["home_team"] == team or m["away_team"] == team
-    ]
+    if team_matches is None:
+        team_matches = [
+            m
+            for m in matches
+            if m["home_team"] == team or m["away_team"] == team
+        ]
     team_matches = team_matches[-window:]
 
     if not team_matches:

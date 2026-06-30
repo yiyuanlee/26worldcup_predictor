@@ -67,6 +67,9 @@ class MatchContext:
     stage: str | None = None
     is_international: bool = False
     group_size: int = 4
+    team_index: dict[str, list[dict]] | None = None
+    home_index: dict[str, list[dict]] | None = None
+    away_index: dict[str, list[dict]] | None = None
 
 
 def build_feature_vector(
@@ -82,8 +85,12 @@ def build_feature_vector(
     context = context or MatchContext()
 
     h2h = compute_h2h(history, home_team, away_team, h2h_window)
-    home_form = compute_form(history, home_team, form_window)
-    away_form = compute_form(history, away_team, form_window)
+    home_form = compute_form(
+        history, home_team, form_window, team_matches=_team_list(context, home_team)
+    )
+    away_form = compute_form(
+        history, away_team, form_window, team_matches=_team_list(context, away_team)
+    )
 
     if odds is None:
         odds = odds_to_implied(2.5, 3.3, 2.8)
@@ -92,7 +99,14 @@ def build_feature_vector(
     features.update(h2h.to_dict())
     features.update(home_form.to_dict("home"))
     features.update(away_form.to_dict("away"))
-    features.update(home_away_features(history, home_team, away_team, form_window))
+    features.update(home_away_features(
+        history,
+        home_team,
+        away_team,
+        form_window,
+        home_index=context.home_index,
+        away_index=context.away_index,
+    ))
     features.update(
         compute_standings_features(
             home_team,
@@ -104,7 +118,13 @@ def build_feature_vector(
     )
     features.update(
         advanced_form_features(
-            history, home_team, away_team, form_window, context.match_date
+            history,
+            home_team,
+            away_team,
+            form_window,
+            context.match_date,
+            home_matches=_team_list(context, home_team),
+            away_matches=_team_list(context, away_team),
         )
     )
     if context.is_international:
@@ -126,6 +146,12 @@ def build_feature_vector(
     features["is_knockout"] = 1.0 if is_knockout_stage(context.stage) else 0.0
 
     return features
+
+
+def _team_list(context: MatchContext, team: str) -> list[dict] | None:
+    if context.team_index is None:
+        return None
+    return context.team_index.get(team, [])
 
 
 def features_to_row(features: dict[str, float], columns: list[str] | None = None) -> list[float]:

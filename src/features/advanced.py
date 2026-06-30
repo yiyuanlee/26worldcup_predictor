@@ -18,11 +18,13 @@ def compute_advanced_form(
     team: str,
     window: int = 5,
     reference_date: str | None = None,
+    team_matches: list[dict] | None = None,
 ) -> dict[str, float]:
     """进阶状态：零封率、双方进球率、休息天数。"""
-    team_matches = [
-        m for m in matches if m["home_team"] == team or m["away_team"] == team
-    ]
+    if team_matches is None:
+        team_matches = [
+            m for m in matches if m["home_team"] == team or m["away_team"] == team
+        ]
     recent = team_matches[-window:]
 
     if not recent:
@@ -73,9 +75,15 @@ def advanced_form_features(
     away_team: str,
     window: int = 5,
     reference_date: str | None = None,
+    home_matches: list[dict] | None = None,
+    away_matches: list[dict] | None = None,
 ) -> dict[str, float]:
-    home_adv = compute_advanced_form(matches, home_team, window, reference_date)
-    away_adv = compute_advanced_form(matches, away_team, window, reference_date)
+    home_adv = compute_advanced_form(
+        matches, home_team, window, reference_date, team_matches=home_matches
+    )
+    away_adv = compute_advanced_form(
+        matches, away_team, window, reference_date, team_matches=away_matches
+    )
 
     features = {}
     for k, v in home_adv.items():

@@ -112,6 +112,10 @@ async function fetchPlan() {
 
   $("loading").classList.remove("hidden");
   $("errorBox").classList.add("hidden");
+  const loadingEl = $("loading").querySelector("span");
+  if (loadingEl) {
+    loadingEl.textContent = fetchOdds ? t("bankroll.loadingOdds") : t("bankroll.loading");
+  }
 
   const q = new URLSearchParams({
     bankroll: String(bankroll),

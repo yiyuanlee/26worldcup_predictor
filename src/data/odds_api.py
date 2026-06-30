@@ -23,7 +23,7 @@ class OddsAPIClient:
     def _get(self, path: str, params: dict | None = None) -> list | dict:
         params = params or {}
         params["apiKey"] = self.api_key
-        resp = requests.get(f"{ODDS_API_BASE}{path}", params=params, timeout=12)
+        resp = requests.get(f"{ODDS_API_BASE}{path}", params=params, timeout=(3, 6))
         resp.raise_for_status()
         return resp.json()
 

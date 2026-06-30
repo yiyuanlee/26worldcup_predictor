@@ -11,6 +11,11 @@ from src.data.wc2026_loader import (
     refresh_wc2026_cache,
 )
 from src.features.builder import MatchContext
+from src.features.history_index import (
+    index_away_matches,
+    index_history_by_team,
+    index_home_matches,
+)
 from src.features.odds_features import OddsFeatures
 from src.model.predict import get_predictor
 
@@ -196,11 +201,30 @@ class DataService:
             )
         return []
 
+    def __init__(self, competition: str = DEFAULT_COMPETITION):
+        self.competition = competition
+        info = COMPETITION_MAP.get(competition, {})
+        self.odds_sport = info.get("odds_sport", "soccer_epl")
+        self.total_teams = info.get("teams", 32 if competition == "WC" else 20)
+        self.is_international = competition in INTERNATIONAL_COMPETITIONS
+        self._odds_client: OddsAPIClient | None = None
+
+    def _get_odds_client(self) -> OddsAPIClient | None:
+        try:
+            if self._odds_client is None:
+                self._odds_client = OddsAPIClient()
+            return self._odds_client
+        except ValueError:
+            return None
+
     def prefetch_odds_events(self) -> list[dict] | None:
         """一次性拉取当前联赛全部待赛赔率（带缓存）。"""
+        client = self._get_odds_client()
+        if not client:
+            return None
         try:
-            return OddsAPIClient().get_upcoming_odds(self.odds_sport)
-        except (ValueError, Exception):
+            return client.get_upcoming_odds(self.odds_sport)
+        except Exception:
             return None
 
     def fetch_odds(
@@ -208,16 +232,22 @@ class DataService:
         home_team: str,
         away_team: str,
         events: list[dict] | None = None,
+        client: OddsAPIClient | None = None,
     ) -> OddsFeatures | None:
         try:
-            client = OddsAPIClient()
-            return client.find_match_odds(
+            c = client or self._get_odds_client()
+            if not c:
+                return None
+            return c.find_match_odds(
                 home_team, away_team, self.odds_sport, events=events
             )
-        except ValueError:
-            return None
         except Exception:
             return None
+
+    def _standings_map(self) -> dict:
+        if self.competition == "WC":
+            return get_wc2026_standings()
+        return _football_data().load_cached_standings(self.competition)
 
     def predict(
         self,
@@ -227,13 +257,17 @@ class DataService:
         match_date: str | None = None,
         stage: str | None = None,
         odds_events: list[dict] | None = None,
+        *,
+        history: list[dict] | None = None,
+        standings: dict | None = None,
+        predictor=None,
+        team_index: dict | None = None,
+        home_index: dict | None = None,
+        away_index: dict | None = None,
+        odds_client: OddsAPIClient | None = None,
     ) -> dict:
-        history = self.get_history()
-        standings = {}
-        if self.competition == "WC":
-            standings = get_wc2026_standings()
-        else:
-            standings = _football_data().load_cached_standings(self.competition)
+        history = history if history is not None else self.get_history()
+        standings = standings if standings is not None else self._standings_map()
 
         context = MatchContext(
             standings=standings,
@@ -242,13 +276,19 @@ class DataService:
             stage=stage,
             is_international=self.is_international,
             group_size=4,
+            team_index=team_index,
+            home_index=home_index,
+            away_index=away_index,
         )
 
         odds = None
         if fetch_odds:
-            odds = self.fetch_odds(home_team, away_team, odds_events)
+            odds = self.fetch_odds(
+                home_team, away_team, odds_events, client=odds_client
+            )
 
-        predictor = get_predictor()
+        if predictor is None:
+            predictor = get_predictor()
         result = predictor.predict(
             history, home_team, away_team, odds=odds, context=context
         )
@@ -399,6 +439,14 @@ class DataService:
             and m.get("away_team") and m["away_team"] != "TBD"
         ]
         odds_events = self.prefetch_odds_events() if fetch_odds else None
+        odds_client = self._get_odds_client() if fetch_odds else None
+        history = self.get_history()
+        standings = self._standings_map()
+        predictor = get_predictor()
+        team_index = index_history_by_team(history)
+        home_index = index_home_matches(history)
+        away_index = index_away_matches(history)
+
         analyses = []
         for m in upcoming:
             analyses.append(
@@ -409,6 +457,13 @@ class DataService:
                     match_date=m.get("date"),
                     stage=m.get("stage"),
                     odds_events=odds_events,
+                    history=history,
+                    standings=standings,
+                    predictor=predictor,
+                    team_index=team_index,
+                    home_index=home_index,
+                    away_index=away_index,
+                    odds_client=odds_client,
                 )
             )
 
