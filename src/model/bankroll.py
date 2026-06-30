@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-OUTCOME_KEYS = ("home_win", "draw", "away_win")
+MIN_STAKE_PCT = 0.005  # 低于 0.5% 视为无效仓位（含浮点噪声）
 
 RISK_PROFILES = {
     "conservative": {
@@ -73,10 +73,10 @@ def _best_pick(
         decimal = float(raw_odds.get(odds_map[best_key], 0.0))
         return best_key, model_p, market_p, edge, decimal, True
 
-    # 无市场赔率：用模型概率相对均匀分布(1/3)的边际，默认赔率 1/模型概率  capped
+    # 无市场赔率：边际相对均衡市场(1/3)，Kelly 用基准赔率 3.0（勿用 1/模型概率，否则 EV≈0）
     baseline = 1.0 / 3.0
     edge = model_p - baseline
-    decimal = min(8.0, max(1.5, 1.0 / max(model_p, 0.05)))
+    decimal = 1.0 / baseline
     return best_key, model_p, None, edge, decimal, False
 
 
@@ -110,7 +110,7 @@ def build_bankroll_plan(
 
         k_raw = kelly_fraction(model_p, decimal) * k_frac
         stake_pct = min(k_raw, profile["max_single_pct"])
-        if stake_pct <= 0:
+        if stake_pct < MIN_STAKE_PCT:
             continue
 
         stake = round(bankroll * stake_pct, 2)
