@@ -209,6 +209,7 @@ class DataService:
         away_team: str,
         fetch_odds: bool = True,
         match_date: str | None = None,
+        stage: str | None = None,
     ) -> dict:
         history = self.get_history()
         standings = {}
@@ -221,6 +222,7 @@ class DataService:
             standings=standings,
             total_teams=self.total_teams,
             match_date=match_date,
+            stage=stage,
             is_international=self.is_international,
             group_size=4,
         )
@@ -283,7 +285,7 @@ class DataService:
         from src.features.form import compute_form
         from src.features.h2h import compute_h2h
 
-        result = self.predict(home_team, away_team, fetch_odds, match_date)
+        result = self.predict(home_team, away_team, fetch_odds, match_date, stage)
         history = self.get_history()
         h2h = compute_h2h(history, home_team, away_team, window=10)
         home_form = compute_form(history, home_team, 5)

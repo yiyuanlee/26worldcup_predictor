@@ -1,4 +1,10 @@
-KNOCKOUT_STAGES = {"round16", "quarter", "semi", "final", "third", "knockout"}
+KNOCKOUT_STAGES = frozenset({
+    "round32", "round16", "quarter", "semi", "final", "third", "knockout",
+})
+
+
+def is_knockout_stage(stage: str | None) -> bool:
+    return bool(stage and stage in KNOCKOUT_STAGES)
 
 
 def tournament_experience_features(

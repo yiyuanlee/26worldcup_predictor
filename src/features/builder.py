@@ -7,6 +7,7 @@ from src.features.h2h import compute_h2h
 from src.features.home_away import home_away_features
 from src.features.odds_features import OddsFeatures, odds_to_implied
 from src.features.standings import TeamStanding, compute_standings_features
+from src.features.world_cup import is_knockout_stage
 
 FEATURE_COLUMNS = [
     # H2H
@@ -53,6 +54,8 @@ FEATURE_COLUMNS = [
     "form_diff_ppg",
     "form_diff_goals_scored",
     "form_diff_goals_conceded",
+    # 赛制
+    "is_knockout",
 ]
 
 
@@ -61,6 +64,7 @@ class MatchContext:
     standings: dict[str, TeamStanding] = field(default_factory=dict)
     total_teams: int = 20
     match_date: str | None = None
+    stage: str | None = None
     is_international: bool = False
     group_size: int = 4
 
@@ -119,6 +123,7 @@ def build_feature_vector(
     features["form_diff_goals_conceded"] = (
         home_form.goals_conceded_avg - away_form.goals_conceded_avg
     )
+    features["is_knockout"] = 1.0 if is_knockout_stage(context.stage) else 0.0
 
     return features
 

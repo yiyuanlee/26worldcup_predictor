@@ -41,6 +41,7 @@ def prepare_training_data(df):
 
         context = MatchContext(
             match_date=str(row.get("date", "")) if pd.notna(row.get("date")) else None,
+            stage=str(row.get("stage", "")) if is_wc_data and pd.notna(row.get("stage")) else None,
             is_international=is_wc_data,
             group_size=4,
         )
@@ -101,8 +102,10 @@ def train_model(df, model_path=None, test_size=0.2, random_state=42):
         model_path = MODEL_DIR / WC_MODEL_FILENAME
 
     X, y = prepare_training_data(df)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
+    sample_weights = _build_sample_weights(df)
+
+    X_train, X_test, y_train, y_test, w_train, _ = train_test_split(
+        X, y, sample_weights, test_size=test_size, random_state=random_state, stratify=y
     )
 
     pipeline = Pipeline([
@@ -116,7 +119,7 @@ def train_model(df, model_path=None, test_size=0.2, random_state=42):
     ])
 
     calibrated = CalibratedClassifierCV(pipeline, cv=3, method="isotonic")
-    calibrated.fit(X_train, y_train)
+    calibrated.fit(X_train, y_train, sample_weight=w_train)
 
     y_pred = calibrated.predict(X_test)
     y_proba = calibrated.predict_proba(X_test)
@@ -134,3 +137,22 @@ def train_model(df, model_path=None, test_size=0.2, random_state=42):
 
     joblib.dump({"model": calibrated, "features": FEATURE_COLUMNS}, model_path)
     return metrics
+
+
+def _build_sample_weights(df) -> "np.ndarray":
+    """近期赛果与淘汰赛样本加权，提升对当前阶段的拟合。"""
+    import numpy as np
+
+    from src.features.world_cup import is_knockout_stage
+
+    weights = np.ones(len(df), dtype=float)
+    if "date" in df.columns:
+        dates = df["date"].astype(str)
+        weights[dates.str.startswith("2026")] *= 2.5
+    if "stage" in df.columns:
+        ko = df["stage"].apply(lambda s: is_knockout_stage(str(s) if s == s else None))
+        weights[ko] *= 1.8
+        # 淘汰赛平局样本额外加权
+        is_draw = df["home_goals"] == df["away_goals"]
+        weights[ko & is_draw] *= 1.5
+    return weights
