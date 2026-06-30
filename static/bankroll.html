@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n-key="meta.bankrollTitle">预算管理 · 世界杯预测</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="page-bankroll">
+  <nav class="top-nav">
+    <a href="/" class="back-link" data-i18n="nav.back">← 返回赛事中心</a>
+    <div class="nav-right">
+      <div class="lang-bar inline">
+        <button type="button" class="lang-btn" data-lang="zh">中文</button>
+        <button type="button" class="lang-btn" data-lang="en">EN</button>
+      </div>
+      <label class="odds-toggle">
+        <input type="checkbox" id="fetchOdds">
+        <span data-i18n="nav.odds">拉取实时赔率</span>
+      </label>
+    </div>
+  </nav>
+
+  <main class="bankroll-main container">
+    <header class="bankroll-hero">
+      <h1 data-i18n="bankroll.title">💰 投资预算管理</h1>
+      <p class="hero-desc" data-i18n="bankroll.desc">基于 WC 专属模型概率与 Kelly 分数法，为待赛场次生成预算分配方案</p>
+    </header>
+
+    <section class="panel bankroll-controls">
+      <div class="control-row">
+        <label>
+          <span data-i18n="bankroll.bankrollLabel">总预算</span>
+          <input type="number" id="bankrollInput" min="10" step="100" value="1000">
+        </label>
+        <label>
+          <span data-i18n="bankroll.riskLabel">风险偏好</span>
+          <select id="riskSelect">
+            <option value="conservative" data-i18n="bankroll.riskConservative">保守</option>
+            <option value="moderate" selected data-i18n="bankroll.riskModerate">稳健</option>
+            <option value="aggressive" data-i18n="bankroll.riskAggressive">进取</option>
+          </select>
+        </label>
+        <button id="generateBtn" class="btn btn-primary" data-i18n="bankroll.generate">生成方案</button>
+      </div>
+      <p id="oddsModeHint" class="hint muted"></p>
+    </section>
+
+    <div id="loading" class="loading-inline hidden">
+      <div class="loader sm"></div>
+      <span data-i18n="bankroll.loading">正在计算预算方案...</span>
+    </div>
+
+    <div id="planContent" class="hidden">
+      <section class="summary-cards" id="summaryCards"></section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2 data-i18n="bankroll.recommendations">推荐分配</h2>
+          <span id="riskBadge" class="risk-badge"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="bankroll-table" id="recTable">
+            <thead>
+              <tr>
+                <th data-i18n="bankroll.colMatch">对阵</th>
+                <th data-i18n="bankroll.colPick">推荐</th>
+                <th data-i18n="bankroll.colModel">模型</th>
+                <th data-i18n="bankroll.colEdge">边际</th>
+                <th data-i18n="bankroll.colOdds">赔率</th>
+                <th data-i18n="bankroll.colStake">建议投入</th>
+                <th data-i18n="bankroll.colEV">期望收益</th>
+              </tr>
+            </thead>
+            <tbody id="recBody"></tbody>
+          </table>
+        </div>
+        <p id="emptyRecs" class="empty hidden" data-i18n="bankroll.noRecs">当前参数下暂无满足条件的推荐场次</p>
+      </section>
+
+      <section class="panel rules-panel">
+        <h2 data-i18n="bankroll.rulesTitle">当前规则参数</h2>
+        <div id="rulesGrid" class="rules-grid"></div>
+      </section>
+
+      <p id="disclaimer" class="disclaimer"></p>
+    </div>
+
+    <div id="errorBox" class="error-box hidden"></div>
+  </main>
+
+  <footer class="footer" data-i18n="footer">World Cup Predictor · 仅供学习研究</footer>
+
+  <script src="/static/i18n.js"></script>
+  <script src="/static/flags.js"></script>
+  <script src="/static/bankroll.js"></script>
+</body>
+</html>

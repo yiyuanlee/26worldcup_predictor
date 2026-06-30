@@ -70,6 +70,22 @@ async def analysis(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/bankroll/plan")
+async def bankroll_plan(
+    bankroll: float = Query(1000, ge=10, le=10_000_000),
+    risk: str = Query("moderate", pattern="^(conservative|moderate|aggressive)$"),
+    fetch_odds: bool = False,
+    lang: str = Query("zh", pattern="^(zh|en)$"),
+):
+    try:
+        svc = DataService(WC)
+        return svc.get_bankroll_plan(bankroll, risk, fetch_odds, lang)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/refresh-schedule")
 async def refresh_schedule():
     try:
@@ -96,6 +112,10 @@ if os.getenv("VERCEL"):
     @app.get("/analysis", response_class=HTMLResponse)
     async def analysis_page():
         return (STATIC_DIR / "analysis.html").read_text(encoding="utf-8")
+
+    @app.get("/bankroll", response_class=HTMLResponse)
+    async def bankroll_page():
+        return (STATIC_DIR / "bankroll.html").read_text(encoding="utf-8")
 else:
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
@@ -111,3 +131,7 @@ else:
     @app.get("/analysis")
     async def analysis_page():
         return FileResponse(STATIC_DIR / "analysis.html")
+
+    @app.get("/bankroll")
+    async def bankroll_page():
+        return FileResponse(STATIC_DIR / "bankroll.html")

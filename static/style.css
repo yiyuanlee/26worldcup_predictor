@@ -553,3 +553,182 @@ select {
   .custom-pick { flex-direction: column; align-items: stretch; }
   .mc-row { grid-template-columns: 1fr 1fr; }
 }
+
+/* Bankroll page */
+.page-bankroll { background: linear-gradient(180deg, #0a1628 0%, var(--bg) 320px); }
+
+.hero-cta {
+  display: inline-block;
+  margin-top: 16px;
+  text-decoration: none;
+}
+
+.bankroll-main { max-width: 1100px; padding-bottom: 48px; }
+
+.bankroll-hero {
+  text-align: center;
+  padding: 24px 0 32px;
+}
+
+.bankroll-hero h1 { font-size: 1.75rem; margin-bottom: 8px; }
+
+.bankroll-controls { margin-bottom: 20px; }
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.control-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.control-row input,
+.control-row select {
+  min-width: 160px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.hint { font-size: 0.82rem; margin-top: 12px; }
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--muted);
+}
+
+.loader.sm { width: 24px; height: 24px; border-width: 2px; }
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.summary-card.gold { border-color: var(--gold); }
+.summary-card.green { border-color: var(--green); }
+.summary-card.accent { border-color: var(--accent, #4da6ff); }
+
+.sc-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.sc-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.risk-badge {
+  font-size: 0.82rem;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--surface2);
+  color: var(--gold);
+}
+
+.table-wrap { overflow-x: auto; }
+
+.bankroll-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.bankroll-table th,
+.bankroll-table td {
+  padding: 12px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.bankroll-table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.78rem;
+}
+
+.bankroll-table tbody tr:hover { background: var(--surface2); }
+
+.match-cell { display: flex; flex-direction: column; gap: 4px; }
+
+.rec-date, .rec-stage {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.pick-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(46, 204, 113, 0.15);
+  color: var(--green);
+  font-weight: 600;
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.rule-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.rule-item strong { color: var(--text); }
+
+.disclaimer {
+  margin-top: 24px;
+  padding: 14px 16px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  background: var(--surface2);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 8px 8px 0;
+}
+
+.error-box {
+  padding: 16px;
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid var(--away);
+  border-radius: 8px;
+  color: var(--away);
+  margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+  .control-row { flex-direction: column; align-items: stretch; }
+  .control-row input, .control-row select { width: 100%; }
+  .bankroll-table { font-size: 0.78rem; }
+}

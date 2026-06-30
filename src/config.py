@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 CACHE_DIR = Path("/tmp/wc_cache") if os.getenv("VERCEL") else DATA_DIR / "cache"
 MODEL_DIR = PROJECT_ROOT / "models"
-STATIC_DIR = PROJECT_ROOT / "static"
+STATIC_DIR = (PROJECT_ROOT / "public") if os.getenv("VERCEL") else PROJECT_ROOT / "static"
 PUBLIC_DIR = PROJECT_ROOT / "public"
 
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")

@@ -364,6 +364,48 @@ class DataService:
             "insights": _build_insights(result, h2h, home_form, away_form, edge, lang),
         }
 
+    def get_bankroll_plan(
+        self,
+        bankroll: float,
+        risk: str = "moderate",
+        fetch_odds: bool = False,
+        lang: str = "zh",
+    ) -> dict:
+        """待赛场次预算分配方案（Kelly + 模型边际）。"""
+        from src.model.bankroll import RISK_PROFILES, build_bankroll_plan
+
+        upcoming = [
+            m for m in self.get_upcoming()
+            if m.get("home_team") and m["home_team"] != "TBD"
+        ]
+        analyses = []
+        for m in upcoming:
+            analyses.append(
+                self.predict(
+                    m["home_team"],
+                    m["away_team"],
+                    fetch_odds=fetch_odds,
+                    match_date=m.get("date"),
+                    stage=m.get("stage"),
+                )
+            )
+
+        plan = build_bankroll_plan(upcoming, analyses, bankroll, risk)
+        labels = _OUTCOME_LABELS.get(lang, _OUTCOME_LABELS["zh"])
+        for rec in plan["recommendations"]:
+            rec["pick_label"] = labels.get(rec["pick"], rec["pick"])
+
+        plan["disclaimer"] = (
+            "仅供学习研究，不构成投资建议。请理性管理资金，切勿超出承受能力。"
+            if lang == "zh"
+            else "For research only. Not financial advice. Never risk more than you can afford to lose."
+        )
+        plan["risk_profiles"] = {
+            k: {"name": k, **v} for k, v in RISK_PROFILES.items()
+        }
+        plan["odds_mode"] = "market" if fetch_odds else "model_estimate"
+        return plan
+
 
 def _team_profile(name: str, standing) -> dict:
     if not standing:
