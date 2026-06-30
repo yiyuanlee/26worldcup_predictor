@@ -6,8 +6,12 @@ function pct(v) {
   return (v * 100).toFixed(1) + "%";
 }
 
-function money(v) {
-  return Number(v).toLocaleString(localeTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function pctInt(v) {
+  return Math.round(v * 100) + "%";
+}
+
+function moneyInt(v) {
+  return Number(v).toLocaleString(localeTag(), { maximumFractionDigits: 0 });
 }
 
 function riskLabel(risk) {
@@ -27,10 +31,10 @@ function showError(msg) {
 
 function renderSummary(summary) {
   const cards = [
-    { label: t("bankroll.summaryBankroll"), value: money(summary.bankroll), cls: "gold" },
-    { label: t("bankroll.summaryAllocated"), value: money(summary.allocated), cls: "green" },
-    { label: t("bankroll.summaryRemaining"), value: money(summary.remaining), cls: "" },
-    { label: t("bankroll.summaryPct"), value: pct(summary.allocation_pct), cls: "" },
+    { label: t("bankroll.summaryBankroll"), value: moneyInt(summary.bankroll), cls: "gold" },
+    { label: t("bankroll.summaryPct"), value: pctInt(summary.allocation_pct), cls: "green" },
+    { label: t("bankroll.summaryAllocated"), value: moneyInt(summary.allocated), cls: "" },
+    { label: t("bankroll.summaryRemaining"), value: moneyInt(summary.remaining), cls: "" },
     { label: t("bankroll.summarySlate"), value: summary.slate_matches, cls: "" },
     { label: t("bankroll.summaryBets"), value: summary.recommended_bets, cls: "accent" },
   ];
@@ -77,8 +81,8 @@ function renderTable(recs) {
       <td>${pct(r.model_prob)}</td>
       <td class="edge ${edgeCls}">${r.edge >= 0 ? "+" : ""}${pct(r.edge)}</td>
       <td>${r.decimal_odds.toFixed(2)}${r.has_market_odds ? "" : "*"}</td>
-      <td><strong>${money(r.stake)}</strong><br><small>${pct(r.stake_pct)}</small></td>
-      <td class="${r.expected_value >= 0 ? "pos" : "neg"}">${money(r.expected_value)}</td>
+      <td><strong>${pctInt(r.stake_pct)}</strong><br><small>${moneyInt(r.stake)}</small></td>
+      <td class="${r.expected_value >= 0 ? "pos" : "neg"}">${moneyInt(r.expected_value)}</td>
     </tr>`;
   }).join("");
 }

@@ -2,7 +2,69 @@
 
 from dataclasses import dataclass
 
-MIN_STAKE_PCT = 0.005  # 低于 0.5% 视为无效仓位（含浮点噪声）
+MIN_STAKE_PCT = 0.01  # 单场最低 1%
+
+
+def _distribute_integer_percents(
+    weights: list[float],
+    bankroll: float,
+    max_slate_pct: float,
+    max_single_pct: float,
+) -> list[tuple[float, int]]:
+    """按权重分配整百分比（1% 步进），返回 (stake_pct, stake_int)。"""
+    n = len(weights)
+    if n == 0:
+        return []
+
+    total_w = sum(weights)
+    if total_w <= 0:
+        weights = [1.0] * n
+        total_w = float(n)
+
+    target_units = int(round(max_slate_pct * 100))
+    max_single_units = max(1, int(max_single_pct * 100))
+    min_units = 1
+
+    if target_units < n * min_units:
+        n = min(n, max(1, target_units // min_units))
+        weights = weights[:n]
+        total_w = sum(weights) or float(n)
+
+    raw_units = [min(w / total_w * target_units, max_single_units) for w in weights]
+    units = [max(min_units, int(u)) for u in raw_units]
+    remainders = [ru - int(ru) for ru in raw_units]
+
+    # 不足目标：按余数补 1%
+    while sum(units) < target_units:
+        idx = max(range(n), key=lambda i: (remainders[i], weights[i]))
+        if units[idx] >= max_single_units:
+            remainders[idx] = -1.0
+            if all(units[i] >= max_single_units for i in range(n)):
+                break
+            continue
+        units[idx] += 1
+        remainders[idx] = -1.0
+
+    # 超出目标：从权重最低且 > min 的场次减 1%
+    while sum(units) > target_units:
+        idx = min(
+            (i for i in range(n) if units[i] > min_units),
+            key=lambda i: (weights[i], units[i]),
+            default=None,
+        )
+        if idx is None:
+            break
+        units[idx] -= 1
+
+    out: list[tuple[float, int]] = []
+    for u in units:
+        pct = round(u / 100.0, 4)
+        stake = int(round(bankroll * pct))
+        if stake < 1 and bankroll >= 1:
+            stake = 1
+            pct = round(stake / bankroll, 4)
+        out.append((pct, stake))
+    return out
 
 RISK_PROFILES = {
     "conservative": {
@@ -42,8 +104,8 @@ class BetOpportunity:
     decimal_odds: float
     kelly_raw: float
     stake_pct: float
-    stake: float
-    expected_value: float
+    stake: int
+    expected_value: int
     has_market_odds: bool
 
 
@@ -109,12 +171,6 @@ def build_bankroll_plan(
             continue
 
         k_raw = kelly_fraction(model_p, decimal) * k_frac
-        stake_pct = min(k_raw, profile["max_single_pct"])
-        if stake_pct < MIN_STAKE_PCT:
-            continue
-
-        stake = round(bankroll * stake_pct, 2)
-        ev = round(stake * (model_p * decimal - 1.0), 2)
 
         opportunities.append(
             BetOpportunity(
@@ -128,33 +184,36 @@ def build_bankroll_plan(
                 edge=round(edge, 4),
                 decimal_odds=round(decimal, 2),
                 kelly_raw=round(k_raw, 4),
-                stake_pct=round(stake_pct, 4),
-                stake=stake,
-                expected_value=ev,
+                stake_pct=0.0,
+                stake=0,
+                expected_value=0,
                 has_market_odds=has_market,
             )
         )
 
-    # 按 edge 降序，总投入不超过 max_slate_pct
     opportunities.sort(key=lambda x: x.edge, reverse=True)
-    max_slate = bankroll * profile["max_slate_pct"]
-    total = sum(o.stake for o in opportunities)
-    if total > max_slate and total > 0:
-        scale = max_slate / total
-        for o in opportunities:
-            o.stake = round(o.stake * scale, 2)
-            o.stake_pct = round(o.stake / bankroll, 4)
-            o.expected_value = round(o.stake * (o.model_prob * o.decimal_odds - 1.0), 2)
 
-    allocated = round(sum(o.stake for o in opportunities), 2)
+    weights = [max(o.edge, 0.001) for o in opportunities]
+    allocations = _distribute_integer_percents(
+        weights,
+        bankroll,
+        profile["max_slate_pct"],
+        profile["max_single_pct"],
+    )
+    for o, (stake_pct, stake) in zip(opportunities, allocations):
+        o.stake_pct = stake_pct
+        o.stake = stake
+        o.expected_value = int(round(stake * (o.model_prob * o.decimal_odds - 1.0)))
+
+    allocated = sum(o.stake for o in opportunities)
 
     return {
         "risk_profile": risk,
         "rules": profile,
         "summary": {
-            "bankroll": bankroll,
+            "bankroll": int(round(bankroll)),
             "allocated": allocated,
-            "remaining": round(bankroll - allocated, 2),
+            "remaining": int(round(bankroll)) - allocated,
             "allocation_pct": round(allocated / bankroll, 4) if bankroll else 0,
             "slate_matches": len(matches),
             "recommended_bets": len(opportunities),
