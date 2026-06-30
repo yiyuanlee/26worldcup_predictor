@@ -196,11 +196,27 @@ class DataService:
             )
         return []
 
-    def fetch_odds(self, home_team: str, away_team: str) -> OddsFeatures | None:
+    def prefetch_odds_events(self) -> list[dict] | None:
+        """一次性拉取当前联赛全部待赛赔率（带缓存）。"""
+        try:
+            return OddsAPIClient().get_upcoming_odds(self.odds_sport)
+        except (ValueError, Exception):
+            return None
+
+    def fetch_odds(
+        self,
+        home_team: str,
+        away_team: str,
+        events: list[dict] | None = None,
+    ) -> OddsFeatures | None:
         try:
             client = OddsAPIClient()
-            return client.find_match_odds(home_team, away_team, self.odds_sport)
-        except (ValueError, Exception):
+            return client.find_match_odds(
+                home_team, away_team, self.odds_sport, events=events
+            )
+        except ValueError:
+            return None
+        except Exception:
             return None
 
     def predict(
@@ -210,6 +226,7 @@ class DataService:
         fetch_odds: bool = True,
         match_date: str | None = None,
         stage: str | None = None,
+        odds_events: list[dict] | None = None,
     ) -> dict:
         history = self.get_history()
         standings = {}
@@ -227,7 +244,9 @@ class DataService:
             group_size=4,
         )
 
-        odds = self.fetch_odds(home_team, away_team) if fetch_odds else None
+        odds = None
+        if fetch_odds:
+            odds = self.fetch_odds(home_team, away_team, odds_events)
 
         predictor = get_predictor()
         result = predictor.predict(
@@ -377,7 +396,9 @@ class DataService:
         upcoming = [
             m for m in self.get_upcoming()
             if m.get("home_team") and m["home_team"] != "TBD"
+            and m.get("away_team") and m["away_team"] != "TBD"
         ]
+        odds_events = self.prefetch_odds_events() if fetch_odds else None
         analyses = []
         for m in upcoming:
             analyses.append(
@@ -387,6 +408,7 @@ class DataService:
                     fetch_odds=fetch_odds,
                     match_date=m.get("date"),
                     stage=m.get("stage"),
+                    odds_events=odds_events,
                 )
             )
 
@@ -394,6 +416,9 @@ class DataService:
         labels = _OUTCOME_LABELS.get(lang, _OUTCOME_LABELS["zh"])
         for rec in plan["recommendations"]:
             rec["pick_label"] = labels.get(rec["pick"], rec["pick"])
+
+        matched = sum(1 for r in plan["recommendations"] if r.get("has_market_odds"))
+        total_rec = len(plan["recommendations"])
 
         plan["disclaimer"] = (
             "仅供学习研究，不构成投资建议。请理性管理资金，切勿超出承受能力。"
@@ -403,7 +428,35 @@ class DataService:
         plan["risk_profiles"] = {
             k: {"name": k, **v} for k, v in RISK_PROFILES.items()
         }
-        plan["odds_mode"] = "market" if fetch_odds else "model_estimate"
+        if fetch_odds and odds_events is None:
+            plan["odds_mode"] = "unavailable"
+            plan["odds_hint"] = (
+                "无法连接赔率 API，请检查 ODDS_API_KEY 配置"
+                if lang == "zh"
+                else "Odds API unavailable — check ODDS_API_KEY"
+            )
+        elif fetch_odds and matched > 0:
+            plan["odds_mode"] = "market"
+            plan["odds_matched"] = matched
+            plan["odds_hint"] = (
+                f"已匹配 {matched}/{total_rec} 场实时市场赔率"
+                if lang == "zh"
+                else f"Live odds matched for {matched}/{total_rec} fixtures"
+            )
+        elif fetch_odds:
+            plan["odds_mode"] = "estimate"
+            plan["odds_hint"] = (
+                "已请求赔率但未匹配到对阵，使用估算赔率"
+                if lang == "zh"
+                else "Odds requested but no fixture match — using estimates"
+            )
+        else:
+            plan["odds_mode"] = "model_estimate"
+            plan["odds_hint"] = (
+                "未拉取市场赔率，使用基准估算"
+                if lang == "zh"
+                else "Market odds not fetched — using baseline estimates"
+            )
         return plan
 
 

@@ -94,9 +94,10 @@ function renderPlan(d) {
   $("errorBox").classList.add("hidden");
 
   $("riskBadge").textContent = riskLabel(d.risk_profile);
-  $("oddsModeHint").textContent = d.odds_mode === "market"
-    ? t("bankroll.oddsMarket")
-    : t("bankroll.oddsEstimate");
+  $("oddsModeHint").textContent = d.odds_hint
+    || (d.odds_mode === "market"
+      ? t("bankroll.oddsMarket")
+      : t("bankroll.oddsEstimate"));
   $("disclaimer").textContent = d.disclaimer || t("bankroll.disclaimer");
 
   renderSummary(d.summary);
@@ -145,9 +146,8 @@ function init() {
     if (planData) {
       fetchPlan();
     } else {
-      $("oddsModeHint").textContent = $("fetchOdds").checked
-        ? t("bankroll.oddsMarket")
-        : t("bankroll.oddsEstimate");
+      $("oddsModeHint").textContent = planData?.odds_hint
+        || ($("fetchOdds").checked ? t("bankroll.oddsMarket") : t("bankroll.oddsEstimate"));
     }
   });
 

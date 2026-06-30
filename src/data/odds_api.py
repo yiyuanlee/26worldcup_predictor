@@ -1,8 +1,13 @@
+import time
+
 import requests
 
 from src.config import ODDS_API_BASE, ODDS_API_KEY, DEFAULT_SPORT
 from src.data.world_cup import teams_match
 from src.features.odds_features import OddsFeatures, average_odds_from_bookmakers
+
+_EVENTS_CACHE: dict[str, tuple[float, list]] = {}
+_CACHE_TTL_SEC = 120
 
 
 class OddsAPIClient:
@@ -18,7 +23,7 @@ class OddsAPIClient:
     def _get(self, path: str, params: dict | None = None) -> list | dict:
         params = params or {}
         params["apiKey"] = self.api_key
-        resp = requests.get(f"{ODDS_API_BASE}{path}", params=params, timeout=8)
+        resp = requests.get(f"{ODDS_API_BASE}{path}", params=params, timeout=12)
         resp.raise_for_status()
         return resp.json()
 
@@ -30,21 +35,34 @@ class OddsAPIClient:
         sport: str = DEFAULT_SPORT,
         regions: str = "eu",
         markets: str = "h2h",
+        *,
+        use_cache: bool = True,
     ) -> list[dict]:
-        return self._get(
+        now = time.time()
+        if use_cache and sport in _EVENTS_CACHE:
+            ts, events = _EVENTS_CACHE[sport]
+            if now - ts < _CACHE_TTL_SEC:
+                return events
+
+        events = self._get(
             f"/sports/{sport}/odds",
             {"regions": regions, "markets": markets, "oddsFormat": "decimal"},
         )
+        if use_cache:
+            _EVENTS_CACHE[sport] = (now, events)
+        return events
 
     def find_match_odds(
         self,
         home_team: str,
         away_team: str,
         sport: str = DEFAULT_SPORT,
+        events: list[dict] | None = None,
     ) -> OddsFeatures | None:
         """查找指定对阵的赔率特征（支持国家队名称别名）。"""
         try:
-            events = self.get_upcoming_odds(sport)
+            if events is None:
+                events = self.get_upcoming_odds(sport)
         except requests.HTTPError:
             return None
 
@@ -54,3 +72,7 @@ class OddsAPIClient:
             if teams_match(home_team, event_home) and teams_match(away_team, event_away):
                 return average_odds_from_bookmakers(event.get("bookmakers", []))
         return None
+
+    @staticmethod
+    def clear_cache() -> None:
+        _EVENTS_CACHE.clear()

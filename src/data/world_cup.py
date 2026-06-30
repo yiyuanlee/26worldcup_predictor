@@ -51,7 +51,7 @@ TEAM_ALIASES: dict[str, list[str]] = {
     "Algeria": ["algeria"],
     "RD Congo": ["rd congo", "dr congo", "congo dr"],
     "Czech Republic": ["czech republic", "czechia"],
-    "Bosnia and Herzegovina": ["bosnia and herzegovina", "bosnia"],
+    "Bosnia and Herzegovina": ["bosnia and herzegovina", "bosnia & herzegovina", "bosnia"],
     "Ivory Coast": ["ivory coast", "cote d'ivoire", "côte d'ivoire"],
     "Curacao": ["curacao", "curaçao"],
     "Cape Verde": ["cape verde"],
@@ -63,21 +63,33 @@ TEAM_ALIASES: dict[str, list[str]] = {
 }
 
 
+def _normalize_token(name: str) -> str:
+    """统一队名格式便于匹配（& → and、去多余空格）。"""
+    n = name.lower().strip()
+    n = n.replace("&", " and ")
+    return " ".join(n.split())
+
+
 def normalize_for_match(name: str) -> set[str]:
     """返回用于模糊匹配的名称集合。"""
-    lower = name.lower().strip()
+    lower = _normalize_token(name)
     tokens = {lower, lower.replace(" fc", "")}
     for canonical, aliases in TEAM_ALIASES.items():
-        if lower == canonical.lower() or lower in aliases:
-            tokens.add(canonical.lower())
-            tokens.update(aliases)
+        canon_norm = _normalize_token(canonical)
+        alias_norms = {_normalize_token(a) for a in aliases}
+        if lower == canon_norm or lower in alias_norms:
+            tokens.add(canon_norm)
+            tokens.update(alias_norms)
     return tokens
 
 
 def teams_match(name_a: str, name_b: str) -> bool:
     a = normalize_for_match(name_a)
     b = normalize_for_match(name_b)
-    return bool(a & b) or name_a.lower() in name_b.lower() or name_b.lower() in name_a.lower()
+    if a & b:
+        return True
+    na, nb = _normalize_token(name_a), _normalize_token(name_b)
+    return na in nb or nb in na
 
 
 # 2026 世界杯常见参赛国（含扩军后示例名单，同步 API 后会覆盖）
