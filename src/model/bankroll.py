@@ -123,12 +123,13 @@ def _best_pick(
     model_probs: dict[str, float],
     market_probs: dict[str, float] | None,
     raw_odds: dict[str, float] | None,
+    from_api: bool = False,
 ) -> tuple[str, float, float | None, float, float, bool]:
     """返回 (pick_key, model_p, market_p, edge, decimal_odds, has_market)。"""
     best_key = max(model_probs, key=model_probs.get)
     model_p = model_probs[best_key]
 
-    if market_probs and raw_odds:
+    if from_api and market_probs and raw_odds:
         market_p = market_probs.get(best_key, 0.0)
         edge = model_p - market_p
         odds_map = {"home_win": "home", "draw": "draw", "away_win": "away"}
@@ -162,7 +163,7 @@ def build_bankroll_plan(
         raw = analysis.get("raw_odds")
 
         pick, model_p, market_p, edge, decimal, has_market = _best_pick(
-            probs, market, raw
+            probs, market, raw, analysis.get("odds_source") == "api"
         )
 
         if model_p < profile["min_model_prob"]:

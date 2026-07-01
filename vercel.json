@@ -1,5 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pip install scikit-learn numpy requests python-dotenv joblib fastapi",
-  "buildCommand": "echo deploy-ready"
+  "buildCommand": "python scripts/warm_cache.py",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60
+    }
+  }
 }

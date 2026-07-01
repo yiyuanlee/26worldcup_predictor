@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 let homeData = null;
+const STALE_MS = 30 * 60 * 1000;
 
 function toast(msg) {
   const el = $("toast");
@@ -55,12 +56,13 @@ function renderTeams(teams) {
 }
 
 function renderStatus(s) {
+  const src = s.source === "football-data.org" ? " · live" : "";
   $("statusBar").textContent = t("status.line", {
     name: t("status.compName"),
-    stage: t("status.stageDefault"),
+    stage: s.stage || s.message || t("status.stageDefault"),
     upcoming: s.upcoming_matches || 0,
     finished: s.finished_matches || s.history_matches || 0,
-  });
+  }) + src;
 }
 
 function renderAll() {
@@ -73,8 +75,40 @@ function renderAll() {
 }
 
 async function load() {
-  homeData = await fetch("/api/home").then((r) => r.json());
+  homeData = await fetch("/api/home").then((r) => {
+    if (!r.ok) throw new Error("load failed");
+    return r.json();
+  });
   renderAll();
+}
+
+function isScheduleStale(status) {
+  if (!status?.has_api_key) return false;
+  const ts = status.synced_at || status.updated_at;
+  if (!ts) return true;
+  const at = Date.parse(ts);
+  if (Number.isNaN(at)) return true;
+  return Date.now() - at > STALE_MS || status.source === "wc2026_schedule";
+}
+
+async function refreshSchedule(silent = false) {
+  const res = await fetch("/api/refresh-schedule", { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "refresh failed");
+  }
+  await load();
+  if (!silent) toast(t("toast.updated"));
+}
+
+async function maybeAutoRefresh() {
+  const status = homeData?.status;
+  if (!isScheduleStale(status)) return;
+  try {
+    await refreshSchedule(true);
+  } catch {
+    /* 静默失败，保留静态赛程 */
+  }
 }
 
 async function init() {
@@ -97,9 +131,7 @@ async function init() {
   $("refreshBtn").addEventListener("click", async () => {
     $("refreshBtn").disabled = true;
     try {
-      await fetch("/api/refresh-schedule", { method: "POST" });
-      toast(t("toast.updated"));
-      await load();
+      await refreshSchedule(false);
     } catch {
       toast(t("toast.failed"));
     } finally {
@@ -109,6 +141,7 @@ async function init() {
 
   window.addEventListener("langchange", renderAll);
   await load();
+  await maybeAutoRefresh();
 }
 
 init();

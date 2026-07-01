@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -16,11 +17,32 @@ from src.config import (
 from src.features.standings import TeamStanding
 
 
+def resolve_football_data_api_key(api_key: str | None = None) -> str:
+    return api_key or os.getenv("FOOTBALL_DATA_API_KEY", "") or FOOTBALL_DATA_API_KEY
+
+
+def map_fd_stage(fd_stage: str | None) -> str:
+    """football-data.org stage → 站内 stage 代码。"""
+    mapping = {
+        "GROUP_STAGE": "group",
+        "LAST_32": "round32",
+        "LAST_16": "round16",
+        "QUARTER_FINALS": "quarter",
+        "SEMI_FINALS": "semi",
+        "FINAL": "final",
+        "THIRD_PLACE": "third",
+        "PLAYOFFS": "knockout",
+    }
+    if not fd_stage:
+        return ""
+    return mapping.get(fd_stage, fd_stage.lower())
+
+
 class FootballDataClient:
     """football-data.org API 客户端 — https://www.football-data.org/"""
 
     def __init__(self, api_key: str | None = None):
-        self.api_key = api_key or FOOTBALL_DATA_API_KEY
+        self.api_key = resolve_football_data_api_key(api_key)
         if not self.api_key:
             raise ValueError(
                 "未设置 FOOTBALL_DATA_API_KEY。请在 .env 中配置，"
@@ -41,16 +63,19 @@ class FootballDataClient:
     @staticmethod
     def _normalize_match(m: dict) -> dict:
         score = m.get("score", {}).get("fullTime", {}) or {}
+        home = m.get("homeTeam") or {}
+        away = m.get("awayTeam") or {}
         return {
             "id": m.get("id"),
-            "home_team": m["homeTeam"]["name"],
-            "away_team": m["awayTeam"]["name"],
-            "home_team_id": m["homeTeam"]["id"],
-            "away_team_id": m["awayTeam"]["id"],
+            "home_team": home.get("name", "TBD"),
+            "away_team": away.get("name", "TBD"),
+            "home_team_id": home.get("id"),
+            "away_team_id": away.get("id"),
             "home_goals": score.get("home") if score.get("home") is not None else 0,
             "away_goals": score.get("away") if score.get("away") is not None else 0,
             "date": m.get("utcDate", ""),
             "status": m.get("status", ""),
+            "stage": map_fd_stage(m.get("stage")),
             "competition": m.get("competition", {}).get("code", ""),
         }
 
@@ -73,6 +98,8 @@ class FootballDataClient:
         competition: str = DEFAULT_COMPETITION,
         limit: int = 20,
     ) -> list[dict]:
+        if competition in INTERNATIONAL_COMPETITIONS:
+            limit = max(limit, 64)
         data = self._get(
             f"/competitions/{competition}/matches",
             {"status": "SCHEDULED,TIMED", "limit": limit},

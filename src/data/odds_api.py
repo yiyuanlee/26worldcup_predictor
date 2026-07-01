@@ -1,3 +1,4 @@
+import os
 import time
 
 import requests
@@ -10,11 +11,16 @@ _EVENTS_CACHE: dict[str, tuple[float, list]] = {}
 _CACHE_TTL_SEC = 120
 
 
+def resolve_odds_api_key(api_key: str | None = None) -> str:
+    """运行时读取 Key，兼容 Vercel 环境变量注入。"""
+    return api_key or os.getenv("ODDS_API_KEY", "") or ODDS_API_KEY
+
+
 class OddsAPIClient:
     """The Odds API 客户端 — https://the-odds-api.com/"""
 
     def __init__(self, api_key: str | None = None):
-        self.api_key = api_key or ODDS_API_KEY
+        self.api_key = resolve_odds_api_key(api_key)
         if not self.api_key:
             raise ValueError(
                 "未设置 ODDS_API_KEY，请在 .env 中配置或在 https://the-odds-api.com/ 注册"
@@ -23,7 +29,9 @@ class OddsAPIClient:
     def _get(self, path: str, params: dict | None = None) -> list | dict:
         params = params or {}
         params["apiKey"] = self.api_key
-        resp = requests.get(f"{ODDS_API_BASE}{path}", params=params, timeout=(3, 6))
+        resp = requests.get(
+            f"{ODDS_API_BASE}{path}", params=params, timeout=(5, 12)
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -33,7 +41,7 @@ class OddsAPIClient:
     def get_upcoming_odds(
         self,
         sport: str = DEFAULT_SPORT,
-        regions: str = "eu",
+        regions: str = "eu,uk,us",
         markets: str = "h2h",
         *,
         use_cache: bool = True,
@@ -65,13 +73,49 @@ class OddsAPIClient:
                 events = self.get_upcoming_odds(sport)
         except requests.HTTPError:
             return None
+        except requests.RequestException:
+            return None
 
         for event in events:
             event_home = event.get("home_team", "")
             event_away = event.get("away_team", "")
-            if teams_match(home_team, event_home) and teams_match(away_team, event_away):
-                return average_odds_from_bookmakers(event.get("bookmakers", []))
+            if teams_match(home_team, event_home) and teams_match(
+                away_team, event_away
+            ):
+                return average_odds_from_bookmakers(
+                    event.get("bookmakers", []), event_home, event_away
+                )
         return None
+
+    def status(self, sport: str = DEFAULT_SPORT) -> dict:
+        """诊断：Key 是否可用、可拉取赛事数量。"""
+        out: dict = {
+            "configured": bool(self.api_key),
+            "sport": sport,
+            "ok": False,
+            "events": 0,
+            "sample": None,
+            "error": None,
+        }
+        if not self.api_key:
+            out["error"] = "ODDS_API_KEY not set"
+            return out
+        try:
+            events = self.get_upcoming_odds(sport, use_cache=False)
+            out["ok"] = True
+            out["events"] = len(events)
+            if events:
+                e = events[0]
+                out["sample"] = {
+                    "home": e.get("home_team"),
+                    "away": e.get("away_team"),
+                    "bookmakers": len(e.get("bookmakers", [])),
+                }
+        except requests.HTTPError as exc:
+            out["error"] = f"HTTP {exc.response.status_code if exc.response else '?'}"
+        except requests.RequestException as exc:
+            out["error"] = str(exc)[:200]
+        return out
 
     @staticmethod
     def clear_cache() -> None:

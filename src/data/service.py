@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from src.data.cache_store import count_csv_rows, get_or_load, invalidate, load_csv_rows, load_json
 from src.config import CACHE_DIR, COMPETITION_MAP, DATA_DIR, DEFAULT_COMPETITION, FOOTBALL_DATA_API_KEY, INTERNATIONAL_COMPETITIONS
 from src.data.odds_api import OddsAPIClient
@@ -9,6 +11,7 @@ from src.data.wc2026_loader import (
     get_wc2026_upcoming_matches,
     load_wc2026_schedule,
     refresh_wc2026_cache,
+    sync_wc_from_api,
 )
 from src.features.builder import MatchContext
 from src.features.history_index import (
@@ -34,6 +37,8 @@ class DataService:
         self.odds_sport = info.get("odds_sport", "soccer_epl")
         self.total_teams = info.get("teams", 32 if competition == "WC" else 20)
         self.is_international = competition in INTERNATIONAL_COMPETITIONS
+        self._odds_client: OddsAPIClient | None = None
+        self._last_odds_error: str | None = None
 
     def get_competitions(self) -> list[dict]:
         return [
@@ -49,24 +54,28 @@ class DataService:
 
     def sync(self) -> dict:
         if self.competition == "WC":
-            from src.config import FOOTBALL_DATA_API_KEY
-            if FOOTBALL_DATA_API_KEY:
-                try:
-                    fd = _football_data()
-                    api_meta = fd.sync_competition_data(self.competition)
-                    refresh_wc2026_cache()
-                    return {**api_meta, "source": "api+wc2026"}
-                except Exception:
-                    pass
-            return refresh_wc2026_cache()
+            try:
+                return sync_wc_from_api()
+            except ValueError:
+                return refresh_wc2026_cache()
+            except Exception:
+                return refresh_wc2026_cache()
         return _football_data().sync_competition_data(self.competition)
 
     def refresh_schedule(self) -> dict:
-        """更新本地赛程（世界杯专用）。"""
+        """更新赛程：优先 football-data.org，失败则回退本地静态文件。"""
         if self.competition == "WC":
             invalidate("wc")
             invalidate("history")
-            return refresh_wc2026_cache()
+            try:
+                return sync_wc_from_api()
+            except ValueError:
+                return refresh_wc2026_cache()
+            except Exception as exc:
+                meta = refresh_wc2026_cache()
+                meta["synced"] = False
+                meta["message"] = f"API 同步失败: {exc}"[:200]
+                return meta
         raise ValueError("refresh_schedule 目前仅支持世界杯 (WC)")
 
     def get_bootstrap(self) -> dict:
@@ -126,12 +135,46 @@ class DataService:
 
     def get_groups(self) -> dict[str, list[dict]]:
         if self.competition == "WC":
+            cache_path = CACHE_DIR / "WC_standings.json"
+            meta_path = CACHE_DIR / "WC_meta.json"
+            if cache_path.exists() and meta_path.exists():
+                meta = load_json(meta_path)
+                if meta.get("source") == "football-data.org":
+                    return self._groups_from_standings_cache(cache_path)
             return get_wc2026_group_tables()
         fd = _football_data()
         groups = fd.load_group_standings(self.competition)
         return {k: v for k, v in groups.items() if k != "TOTAL"}
 
+    @staticmethod
+    def _groups_from_standings_cache(path: Path) -> dict[str, list[dict]]:
+        from src.features.standings import TeamStanding
+
+        raw = load_json(path)
+        groups: dict[str, list[dict]] = {}
+        for name, data in raw.items():
+            st = TeamStanding(**data)
+            key = st.group or "TOTAL"
+            if key == "TOTAL":
+                continue
+            groups.setdefault(key, []).append({
+                "team": name,
+                "position": st.position,
+                "points": st.points,
+                "played": st.played,
+                "won": st.won,
+                "draw": st.draw,
+                "lost": st.lost,
+                "goal_difference": st.goal_difference,
+            })
+        for rows in groups.values():
+            rows.sort(key=lambda x: x["position"])
+        return groups
+
     def get_sync_status(self) -> dict:
+        from src.data.football_data import resolve_football_data_api_key
+
+        has_api_key = bool(resolve_football_data_api_key())
         meta_path = CACHE_DIR / f"{self.competition}_meta.json"
         if meta_path.exists():
             meta = get_or_load(
@@ -142,7 +185,7 @@ class DataService:
             csv_path = CACHE_DIR / f"{self.competition}_matches.csv"
             if csv_path.exists():
                 meta = {**meta, "history_matches": count_csv_rows(csv_path)}
-            return meta
+            return {**meta, "has_api_key": has_api_key}
         if self.competition == "WC":
             schedule = get_or_load(
                 "wc2026:schedule",
@@ -159,12 +202,23 @@ class DataService:
                     "upcoming_matches": len(get_wc2026_upcoming_matches()),
                     "history_matches": 201,
                     "stage": schedule.get("note", ""),
+                    "source": "wc2026_schedule",
+                    "has_api_key": has_api_key,
                 }
-        return {"synced": False, "message": "尚未同步数据，请点击「更新赛程」", "history_matches": 0}
+        return {
+            "synced": False,
+            "message": "尚未同步数据，请点击「更新赛程」",
+            "history_matches": 0,
+            "has_api_key": has_api_key,
+        }
 
     def get_history(self) -> list[dict]:
         if self.competition == "WC":
             csv_path = CACHE_DIR / "WC_matches.csv"
+            if not csv_path.exists():
+                bundled = DATA_DIR / "cache" / "WC_matches.csv"
+                if bundled.exists():
+                    csv_path = bundled
             if csv_path.exists():
                 return get_or_load(
                     "history:WC",
@@ -201,14 +255,6 @@ class DataService:
             )
         return []
 
-    def __init__(self, competition: str = DEFAULT_COMPETITION):
-        self.competition = competition
-        info = COMPETITION_MAP.get(competition, {})
-        self.odds_sport = info.get("odds_sport", "soccer_epl")
-        self.total_teams = info.get("teams", 32 if competition == "WC" else 20)
-        self.is_international = competition in INTERNATIONAL_COMPETITIONS
-        self._odds_client: OddsAPIClient | None = None
-
     def _get_odds_client(self) -> OddsAPIClient | None:
         try:
             if self._odds_client is None:
@@ -219,13 +265,39 @@ class DataService:
 
     def prefetch_odds_events(self) -> list[dict] | None:
         """一次性拉取当前联赛全部待赛赔率（带缓存）。"""
+        self._last_odds_error = None
         client = self._get_odds_client()
         if not client:
+            self._last_odds_error = "ODDS_API_KEY not configured"
             return None
         try:
             return client.get_upcoming_odds(self.odds_sport)
-        except Exception:
+        except Exception as exc:
+            self._last_odds_error = str(exc)[:200]
             return None
+
+    def get_odds_status(self) -> dict:
+        """诊断赔率 API 连接状态。"""
+        from src.data.odds_api import resolve_odds_api_key
+
+        if not resolve_odds_api_key():
+            return {
+                "configured": False,
+                "ok": False,
+                "sport": self.odds_sport,
+                "events": 0,
+                "error": "ODDS_API_KEY not configured",
+            }
+        client = self._get_odds_client()
+        if not client:
+            return {
+                "configured": True,
+                "ok": False,
+                "sport": self.odds_sport,
+                "events": 0,
+                "error": "Failed to init odds client",
+            }
+        return client.status(self.odds_sport)
 
     def fetch_odds(
         self,
@@ -485,10 +557,12 @@ class DataService:
         }
         if fetch_odds and odds_events is None:
             plan["odds_mode"] = "unavailable"
+            err = self._last_odds_error or "unknown"
+            plan["odds_error"] = err
             plan["odds_hint"] = (
-                "无法连接赔率 API，请检查 ODDS_API_KEY 配置"
+                f"无法连接赔率 API（{err}），请检查 ODDS_API_KEY"
                 if lang == "zh"
-                else "Odds API unavailable — check ODDS_API_KEY"
+                else f"Odds API unavailable ({err}) — check ODDS_API_KEY"
             )
         elif fetch_odds and matched > 0:
             plan["odds_mode"] = "market"

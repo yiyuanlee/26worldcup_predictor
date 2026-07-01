@@ -188,3 +188,129 @@ def refresh_wc2026_cache() -> dict:
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     return meta
+
+
+def sync_wc_from_api() -> dict:
+    """从 football-data.org 拉取最新世界杯数据并写入缓存。"""
+    import os
+
+    from src.data.football_data import FootballDataClient, resolve_football_data_api_key
+
+    if not resolve_football_data_api_key():
+        raise ValueError("FOOTBALL_DATA_API_KEY not configured")
+
+    invalidate("")
+    CACHE_DIR.mkdir(exist_ok=True)
+    competition = "WC"
+    client = FootballDataClient()
+
+    finished = client.get_competition_matches(competition, status="FINISHED", limit=200)
+    upcoming_raw = client.get_upcoming_matches(competition, limit=64)
+    standings = client.get_standings(competition)
+    teams = client.get_teams(competition)
+
+    upcoming = [
+        {
+            "home_team": m["home_team"],
+            "away_team": m["away_team"],
+            "date": m["date"],
+            "status": m["status"],
+            "stage": m.get("stage", ""),
+        }
+        for m in upcoming_raw
+        if m.get("home_team") and m["home_team"] != "TBD"
+        and m.get("away_team") and m["away_team"] != "TBD"
+    ]
+    upcoming.sort(key=lambda x: x["date"])
+
+    (CACHE_DIR / f"{competition}_matches.json").write_text(
+        json.dumps(finished, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (CACHE_DIR / f"{competition}_upcoming.json").write_text(
+        json.dumps(upcoming, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (CACHE_DIR / f"{competition}_teams.json").write_text(
+        json.dumps(teams, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    standings_raw = {
+        name: {
+            "position": s.position,
+            "points": s.points,
+            "goal_difference": s.goal_difference,
+            "played": s.played,
+            "won": s.won,
+            "draw": s.draw,
+            "lost": s.lost,
+            "goals_for": s.goals_for,
+            "goals_against": s.goals_against,
+            "group": s.group,
+        }
+        for name, s in standings.items()
+    }
+    (CACHE_DIR / f"{competition}_standings.json").write_text(
+        json.dumps(standings_raw, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    history: list[dict] = []
+    if WC2026_HISTORICAL.exists():
+        history.extend(read_csv_rows(WC2026_HISTORICAL))
+    for m in finished:
+        history.append({
+            "date": m.get("date", ""),
+            "home_team": m["home_team"],
+            "away_team": m["away_team"],
+            "home_goals": m["home_goals"],
+            "away_goals": m["away_goals"],
+            "stage": m.get("stage", ""),
+        })
+    history.sort(key=lambda x: x.get("date", ""))
+    write_csv_rows(
+        CACHE_DIR / f"{competition}_matches.csv",
+        [
+            {
+                "date": m.get("date", ""),
+                "home_team": m["home_team"],
+                "away_team": m["away_team"],
+                "home_goals": m["home_goals"],
+                "away_goals": m["away_goals"],
+                "stage": m.get("stage", ""),
+            }
+            for m in history
+        ],
+        ["date", "home_team", "away_team", "home_goals", "away_goals", "stage"],
+    )
+
+    if not os.getenv("VERCEL") and finished:
+        write_csv_rows(
+            WC2026_RESULTS,
+            [
+                {
+                    "date": m.get("date", "")[:10],
+                    "home_team": m["home_team"],
+                    "away_team": m["away_team"],
+                    "home_goals": m["home_goals"],
+                    "away_goals": m["away_goals"],
+                    "stage": m.get("stage", ""),
+                }
+                for m in finished
+            ],
+            ["date", "home_team", "away_team", "home_goals", "away_goals", "stage"],
+        )
+
+    meta = {
+        "competition": competition,
+        "competition_name": "世界杯 2026",
+        "synced": True,
+        "synced_at": datetime.now(timezone.utc).isoformat(),
+        "finished_matches": len(finished),
+        "upcoming_matches": len(upcoming),
+        "history_matches": len(history),
+        "teams": len(teams),
+        "source": "football-data.org",
+        "stage": upcoming[0].get("stage", "Round of 32") if upcoming else "Round of 32",
+    }
+    (CACHE_DIR / f"{competition}_meta.json").write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return meta

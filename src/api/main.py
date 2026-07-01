@@ -15,6 +15,8 @@ WC = "WC"
 def warmup():
     try:
         get_predictor()
+        svc = DataService(WC)
+        svc.get_history()
     except Exception:
         pass
 
@@ -38,8 +40,9 @@ class PredictRequest(BaseModel):
 async def home_data():
     """首页数据：赛程 + 小组排名 + 状态。"""
     svc = DataService(WC)
+    status = svc.get_sync_status()
     return {
-        "status": svc.get_sync_status(),
+        "status": status,
         "upcoming": svc.get_upcoming(),
         "groups": svc.get_groups(),
         "teams": svc.get_teams(),
@@ -70,6 +73,13 @@ async def analysis(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/odds/status")
+async def odds_status():
+    """诊断 The Odds API 是否可用。"""
+    svc = DataService(WC)
+    return svc.get_odds_status()
+
+
 @app.get("/api/bankroll/plan")
 async def bankroll_plan(
     bankroll: float = Query(1000, ge=10, le=10_000_000),
@@ -91,7 +101,8 @@ async def refresh_schedule():
     try:
         svc = DataService(WC)
         result = svc.refresh_schedule()
-        return {"success": True, **result}
+        ok = result.get("synced", True) or result.get("source") != "wc2026_schedule"
+        return {"success": ok, **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

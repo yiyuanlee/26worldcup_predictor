@@ -49,10 +49,15 @@ def odds_to_implied(home: float, draw: float, away: float) -> OddsFeatures:
 
 def average_odds_from_bookmakers(
     bookmakers: list[dict],
+    home_team: str,
+    away_team: str,
 ) -> OddsFeatures | None:
     """
     从 The Odds API 返回的 bookmakers 列表中提取 h2h 市场平均赔率。
+    按 event 主/客队名映射 outcome，避免 dict 顺序错乱。
     """
+    from src.data.world_cup import teams_match
+
     home_odds_list: list[float] = []
     draw_odds_list: list[float] = []
     away_odds_list: list[float] = []
@@ -61,18 +66,23 @@ def average_odds_from_bookmakers(
         for market in bm.get("markets", []):
             if market.get("key") != "h2h":
                 continue
-            outcomes = {o["name"]: o["price"] for o in market.get("outcomes", [])}
-            names = list(outcomes.keys())
-            if len(names) < 2:
-                continue
-            prices = list(outcomes.values())
-            if len(prices) == 2:
-                home_odds_list.append(prices[0])
-                away_odds_list.append(prices[1])
-            elif len(prices) >= 3:
-                home_odds_list.append(prices[0])
-                draw_odds_list.append(prices[1])
-                away_odds_list.append(prices[2])
+            ho = dr = ao = None
+            for o in market.get("outcomes", []):
+                name = o.get("name", "")
+                price = o.get("price")
+                if not price:
+                    continue
+                if name.lower() == "draw":
+                    dr = float(price)
+                elif teams_match(name, home_team):
+                    ho = float(price)
+                elif teams_match(name, away_team):
+                    ao = float(price)
+            if ho and ao:
+                home_odds_list.append(ho)
+                away_odds_list.append(ao)
+                if dr:
+                    draw_odds_list.append(dr)
 
     if not home_odds_list or not away_odds_list:
         return None

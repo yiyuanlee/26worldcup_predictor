@@ -6,7 +6,8 @@ venv/
 .env
 models/*.pkl
 models/match_predictor.joblib
-!models/wc_predictor.joblibdata/cache/
+!models/wc_predictor.joblib
+data/cache/
 .DS_Store
 .idea/
 .vscode/
